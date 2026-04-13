@@ -1,0 +1,17 @@
+.git
+.gitignore
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+experiments/
+tests/
+docs/
+data/raw/
+data/processed/chroma/
+data/eval/
+notebooks/
+*.md
+!README.md
+.env

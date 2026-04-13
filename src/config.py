@@ -1,0 +1,61 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Global application settings loaded from environment / .env file."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    # OpenAI (LLM 전용. 임베딩은 기본적으로 huggingface 사용)
+    openai_api_key: str = ""
+    openai_llm_model: str = "gpt-4o-mini"
+    openai_embedding_model: str = "text-embedding-3-small"  # Phase 3 비교 실험용
+
+    # Embedding (오픈소스 기본)
+    # provider: "huggingface" | "openai"
+    embedding_provider: str = "huggingface"
+    # 메인: BAAI/bge-m3, 비교군: BAAI/bge-large-en-v1.5
+    embedding_model: str = "BAAI/bge-m3"
+    embedding_device: str = "cpu"  # "cpu" | "cuda" | "mps"
+    embedding_batch_size: int = 32
+    embedding_normalize: bool = True  # BGE 권장
+
+    # Vector DB
+    chroma_persist_dir: Path = Path("./data/processed/chroma")
+    chroma_collection_name: str = "langchain_docs"
+    # 서버 모드 — 비워두면 PersistentClient(로컬 파일), 설정 시 HttpClient 사용
+    chroma_host: str = ""
+    chroma_port: int = 8000
+
+    # Retrieval
+    top_k: int = 5
+    chunk_size: int = 1000
+    chunk_overlap: int = 150
+
+    # Crawler
+    crawl_output_dir: Path = Path("./data/raw/langchain")
+    crawl_max_pages: int = 500
+    # 동시 다운로드 슬롯 수. 429/503이 보이면 낮춰 대응. 16이 raw.githubusercontent.com 기준 안전선.
+    crawl_concurrency: int = 16
+    # 쉼표 구분. DOC_ROOT 기준 상대경로 prefix. 비워두면 전체.
+    crawl_include_prefixes: str = "oss/"
+    # 쉼표 구분. DOC_ROOT 기준 상대경로 substring. 해당 문자열이 포함된 경로는 제외.
+    crawl_exclude_substrings: str = "oss/javascript/"
+
+    # Web search (Tavily)
+    tavily_api_key: str = ""
+    tavily_max_results: int = 5
+
+    # Logging
+    log_level: str = "INFO"
+
+
+settings = Settings()

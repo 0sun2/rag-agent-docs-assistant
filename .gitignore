@@ -1,0 +1,49 @@
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+build/
+dist/
+*.egg
+
+# Virtualenvs
+.venv/
+venv/
+env/
+
+# Claude Code / 계획서 (공개 제외)
+CLAUDE.md
+portfolio_project_plan.md
+.claude/
+
+# Data (재현 가능)
+data/raw/
+data/processed/
+data/eval/*.cache
+!data/eval/.gitkeep
+
+# Notebooks
+.ipynb_checkpoints/
+experiments/**/outputs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# WSL / Windows
+*:Zone.Identifier
+data/hf_cache/
