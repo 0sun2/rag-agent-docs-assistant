@@ -1,0 +1,74 @@
+# 원커맨드 실행: docker compose up --build
+#
+# 서비스:
+#   chromadb  — Chroma 서버 모드. 기존 로컬 persist_dir 을 그대로 마운트해 재인덱싱 불필요.
+#   api       — FastAPI (uvicorn). CHROMA_HOST 로 chromadb 컨테이너를 바라본다.
+#   ui        — Streamlit. API_BASE_URL 로 api 컨테이너를 바라본다.
+#
+# 주의:
+#   - 최초 `uv run python -m src.rag.embedding.run` 은 호스트에서 미리 한 번 돌려
+#     `./data/processed/chroma` 에 컬렉션이 적재돼 있어야 한다.
+#   - BM25 는 `./data/processed/chunks/*.jsonl` 을 in-memory 로 올린다 — 이미지 빌드
+#     단계에서 COPY 하므로 추가 마운트 불필요.
+
+services:
+  chromadb:
+    image: chromadb/chroma:1.5.7
+    container_name: llm-docs-chromadb
+    volumes:
+      - ./data/processed/chroma:/data
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    ports:
+      - "8001:8000"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/8000 && printf 'GET /api/v2/heartbeat HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q '200 OK' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    container_name: llm-docs-api
+    depends_on:
+      chromadb:
+        condition: service_healthy
+    env_file:
+      - .env
+    volumes:
+      - ./data/hf_cache:/root/.cache/huggingface
+    environment:
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+      - EMBEDDING_DEVICE=cuda
+      - HF_HOME=/root/.cache/huggingface
+    ports:
+      - "8000:8000"
+    command: ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  ui:
+    build: .
+    container_name: llm-docs-ui
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      - API_BASE_URL=http://api:8000
+    ports:
+      - "8501:8501"
+    command:
+      ["streamlit", "run", "src/ui/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
