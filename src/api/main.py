@@ -14,9 +14,13 @@ from __future__ import annotations
 import json
 import logging
 
+from collections.abc import Iterator
+
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from langchain_core.messages import (
     AIMessage,
+    AIMessageChunk,
     BaseMessage,
     HumanMessage,
     SystemMessage,
@@ -272,6 +276,110 @@ def agent_thread_chat(req: AgentThreadChatRequest) -> AgentThreadChatResponse:
         iterations=final.get("iteration_count", 0),
         usage=_to_usage_info(usage),
     )
+
+
+def _chunk_text(chunk: AIMessageChunk) -> str:
+    """토큰 델타에서 텍스트만 추출 (Bedrock은 content가 블록 리스트일 수 있음)."""
+    content = chunk.content
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "".join(
+            b.get("text", "") if isinstance(b, dict) else str(b) for b in content
+        )
+    return ""
+
+
+def agent_stream_events(graph, initial_state: dict, config: dict) -> Iterator[dict]:
+    """그래프 실행을 SSE 이벤트(dict)로 변환하는 제너레이터.
+
+    이벤트 타입:
+        token       — LLM 토큰 델타 {text}
+        tool_call   — 도구 호출 시작 {name, args}
+        tool_result — 도구 실행 결과 {name, preview}
+        done        — 종료 {answer, iterations, usage}
+    """
+    new_msgs: list[BaseMessage] = []
+    iterations = 0
+    for mode, payload in graph.stream(
+        initial_state, config, stream_mode=["messages", "updates"]
+    ):
+        if mode == "messages":
+            chunk, meta = payload
+            if (
+                isinstance(chunk, AIMessageChunk)
+                and meta.get("langgraph_node") == "agent"
+            ):
+                text = _chunk_text(chunk)
+                if text:
+                    yield {"type": "token", "text": text}
+        else:  # updates — 노드 단위 산출물 (완성된 메시지)
+            for update in payload.values():
+                if not update:
+                    continue
+                iterations = update.get("iteration_count", iterations)
+                for m in update.get("messages", []):
+                    new_msgs.append(m)
+                    if isinstance(m, AIMessage) and m.tool_calls:
+                        for tc in m.tool_calls:
+                            yield {
+                                "type": "tool_call",
+                                "name": tc["name"],
+                                "args": tc.get("args", {}),
+                            }
+                    elif isinstance(m, ToolMessage):
+                        yield {
+                            "type": "tool_result",
+                            "name": m.name or "tool",
+                            "preview": str(m.content)[:500],
+                        }
+
+    usage = usage_from_messages(new_msgs)
+    log_usage("agent_thread_stream", usage)
+    yield {
+        "type": "done",
+        "answer": _final_answer(new_msgs),
+        "iterations": iterations,
+        "usage": usage.to_dict() if usage.llm_calls else None,
+    }
+
+
+@app.post("/agent/thread/stream")
+def agent_thread_stream(req: AgentThreadChatRequest) -> StreamingResponse:
+    """SSE 스트리밍 버전 — 토큰 델타 + 도구 호출 이벤트를 실시간 전송.
+
+    이벤트는 `data: {json}\\n\\n` 라인으로 흐르고 마지막에 type=done 이 온다.
+    """
+    guard = check_user_input(req.message)
+
+    def sse(data: dict) -> str:
+        return f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+    if guard.blocked:
+        def blocked_stream() -> Iterator[str]:
+            yield sse({"type": "token", "text": guard.message})
+            yield sse({"type": "done", "answer": guard.message, "iterations": 0, "usage": None})
+
+        return StreamingResponse(blocked_stream(), media_type="text/event-stream")
+
+    graph = get_cached_thread_agent_graph()
+    config = {"configurable": {"thread_id": req.thread_id}}
+    initial_state = {
+        "messages": [HumanMessage(content=req.message)],
+        "tool_results": [],
+        "current_query": req.message,
+        "iteration_count": 0,
+    }
+
+    def event_stream() -> Iterator[str]:
+        try:
+            for event in agent_stream_events(graph, initial_state, config):
+                yield sse(event)
+        except Exception as e:  # noqa: BLE001
+            logger.exception("Agent stream failed")
+            yield sse({"type": "error", "message": str(e)})
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 @app.get("/agent/thread/{thread_id}/history", response_model=AgentThreadHistoryResponse)
