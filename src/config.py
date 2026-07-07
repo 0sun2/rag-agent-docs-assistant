@@ -14,10 +14,18 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    # LLM provider: "openai" | "bedrock"
+    llm_provider: str = "openai"
+
     # OpenAI (LLM 전용. 임베딩은 기본적으로 huggingface 사용)
     openai_api_key: str = ""
     openai_llm_model: str = "gpt-4o-mini"
     openai_embedding_model: str = "text-embedding-3-small"  # Phase 3 비교 실험용
+
+    # AWS Bedrock (자격증명은 ~/.aws/credentials 또는 IAM 역할 — .env에 키 넣지 않음)
+    # 모델 ID는 온디맨드 미지원 모델이 있어 추론 프로파일 ID 사용
+    bedrock_model_id: str = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    aws_region: str = "ap-southeast-1"
 
     # Embedding (오픈소스 기본)
     # provider: "huggingface" | "openai"

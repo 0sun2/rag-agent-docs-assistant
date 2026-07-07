@@ -86,7 +86,7 @@ def build_rag_chain(
     embedding_provider: str | None = None,
     embedding_model: str | None = None,
     top_k: int | None = None,
-    llm_provider: str = "openai",
+    llm_provider: str | None = None,
     llm_model: str | None = None,
     temperature: float = 0.0,
 ) -> RAGChain:
