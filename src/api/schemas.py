@@ -25,7 +25,7 @@ class UsageInfo(BaseModel):
 class RAGQARequest(BaseModel):
     question: str = Field(..., min_length=1)
     strategy: Literal["recursive", "markdown", "fixed"] = "recursive"
-    embedding_model: Literal["bge-m3", "bge-large-en-v1.5"] = "bge-large-en-v1.5"
+    embedding_model: Literal["bge-m3", "bge-large-en-v1.5", "titan-v2"] = "bge-large-en-v1.5"
     method: Literal["dense", "hybrid", "hybrid_rerank"] = "hybrid_rerank"
     top_k: int = Field(5, ge=1, le=20)
 

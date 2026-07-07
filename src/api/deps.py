@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 EMBED_MODEL_MAP = {
     "bge-m3": ("huggingface", "BAAI/bge-m3"),
     "bge-large-en-v1.5": ("huggingface", "BAAI/bge-large-en-v1.5"),
+    # AWS 관리형 (사전 재색인 필요: embedding.run --provider bedrock)
+    "titan-v2": ("bedrock", "amazon.titan-embed-text-v2:0"),
 }
 
 

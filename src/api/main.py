@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import json
 import logging
-
 from collections.abc import Iterator
 
 from fastapi import FastAPI, HTTPException
