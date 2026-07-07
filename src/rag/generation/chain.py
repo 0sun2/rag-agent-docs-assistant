@@ -15,6 +15,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.vectorstores import VectorStoreRetriever
 
 from src.rag.generation.llm import get_llm
+from src.rag.generation.usage import UsageReport, log_usage, usage_from_response
 from src.rag.retrieval.retriever import get_retriever
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,7 @@ class QAResult:
     question: str
     answer: str
     sources: list[Document]
+    usage: UsageReport | None = None
 
 
 def _format_context(docs: list[Document]) -> str:
@@ -77,7 +79,9 @@ class RAGChain:
         messages = self.prompt.format_messages(question=question, context=context)
         response = self.llm.invoke(messages)
         answer = response.content if hasattr(response, "content") else str(response)
-        return QAResult(question=question, answer=str(answer), sources=docs)
+        usage = usage_from_response(response)
+        log_usage("rag_qa", usage)
+        return QAResult(question=question, answer=str(answer), sources=docs, usage=usage)
 
 
 def build_rag_chain(

@@ -62,6 +62,9 @@ class Settings(BaseSettings):
     tavily_api_key: str = ""
     tavily_max_results: int = 5
 
+    # Usage / cost
+    usd_krw_rate: float = 1400.0  # 비용 추정용 환율 (KRW per USD)
+
     # Logging
     log_level: str = "INFO"
 

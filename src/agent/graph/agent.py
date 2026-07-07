@@ -117,6 +117,13 @@ def _agent_node_factory(llm_with_tools: BaseChatModel):
             return {"messages": [response], "iteration_count": iteration}
 
         response = llm_with_tools.invoke(msgs)
+        if isinstance(response, AIMessage) and response.usage_metadata:
+            logger.info(
+                "Agent step %d usage: in=%d out=%d",
+                iteration,
+                response.usage_metadata.get("input_tokens", 0),
+                response.usage_metadata.get("output_tokens", 0),
+            )
         return {"messages": [response], "iteration_count": iteration}
 
     return agent_node

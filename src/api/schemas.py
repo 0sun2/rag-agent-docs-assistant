@@ -6,6 +6,19 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+# ─────────── Usage ───────────
+
+class UsageInfo(BaseModel):
+    """요청 1건의 토큰 사용량 + 추정 비용 (usage.UsageReport 미러)."""
+
+    model: str
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+    llm_calls: int
+    cost_usd: float | None = None
+    cost_krw: float | None = None
+
 
 # ─────────── RAG QA ───────────
 
@@ -25,6 +38,7 @@ class RAGSource(BaseModel):
 class RAGQAResponse(BaseModel):
     answer: str
     sources: list[RAGSource]
+    usage: UsageInfo | None = None
 
 
 # ─────────── Agent ───────────
@@ -51,3 +65,4 @@ class AgentChatResponse(BaseModel):
     trace: list[AgentTraceStep]
     messages: list[ChatMessage]  # full updated history (클라이언트가 다음 턴에 그대로 보냄)
     iterations: int
+    usage: UsageInfo | None = None

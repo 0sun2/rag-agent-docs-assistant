@@ -32,9 +32,11 @@ from src.api.schemas import (
     RAGQARequest,
     RAGQAResponse,
     RAGSource,
+    UsageInfo,
 )
 from src.rag.generation.chain import RAGChain
 from src.rag.generation.llm import get_llm
+from src.rag.generation.usage import UsageReport, log_usage, usage_from_messages
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +50,12 @@ app = FastAPI(
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+def _to_usage_info(report: UsageReport | None) -> UsageInfo | None:
+    if report is None or report.llm_calls == 0:
+        return None
+    return UsageInfo(**report.to_dict())
 
 
 # ─────────── RAG QA ───────────
@@ -76,7 +84,9 @@ def rag_qa(req: RAGQARequest) -> RAGQAResponse:
         )
         for d in result.sources
     ]
-    return RAGQAResponse(answer=result.answer, sources=sources)
+    return RAGQAResponse(
+        answer=result.answer, sources=sources, usage=_to_usage_info(result.usage)
+    )
 
 
 # ─────────── Agent ───────────
@@ -176,9 +186,13 @@ def agent_chat(req: AgentChatRequest) -> AgentChatResponse:
         "(no answer)",
     )
 
+    usage = usage_from_messages(new_msgs)
+    log_usage("agent_chat", usage)
+
     return AgentChatResponse(
         answer=answer,
         trace=trace,
         messages=_from_lc_messages(final["messages"]),
         iterations=final.get("iteration_count", 0),
+        usage=_to_usage_info(usage),
     )
