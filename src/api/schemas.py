@@ -66,3 +66,25 @@ class AgentChatResponse(BaseModel):
     messages: list[ChatMessage]  # full updated history (클라이언트가 다음 턴에 그대로 보냄)
     iterations: int
     usage: UsageInfo | None = None
+
+
+# ─────────── Agent (thread 기반 영속 대화) ───────────
+
+class AgentThreadChatRequest(BaseModel):
+    """서버측 메모리 사용 — 클라이언트는 thread_id + 새 메시지만 보낸다."""
+
+    thread_id: str = Field(..., min_length=1, max_length=128)
+    message: str = Field(..., min_length=1)
+
+
+class AgentThreadChatResponse(BaseModel):
+    thread_id: str
+    answer: str
+    trace: list[AgentTraceStep]
+    iterations: int
+    usage: UsageInfo | None = None
+
+
+class AgentThreadHistoryResponse(BaseModel):
+    thread_id: str
+    messages: list[ChatMessage]

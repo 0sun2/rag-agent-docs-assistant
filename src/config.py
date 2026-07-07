@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     tavily_api_key: str = ""
     tavily_max_results: int = 5
 
+    # Agent memory (LangGraph checkpointer)
+    checkpoint_db_path: Path = Path("./data/checkpoints.sqlite")
+    # 모델에 보내는 히스토리 절삭 상한 (근사 토큰). 저장 state는 자르지 않음.
+    history_max_tokens: int = 8000
+
     # Usage / cost
     usd_krw_rate: float = 1400.0  # 비용 추정용 환율 (KRW per USD)
 

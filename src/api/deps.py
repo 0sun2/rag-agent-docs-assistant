@@ -44,3 +44,23 @@ def get_cached_agent_graph():
     from src.agent.graph.agent import build_agent_graph
 
     return build_agent_graph()
+
+
+@lru_cache(maxsize=1)
+def get_cached_thread_agent_graph():
+    """thread_id 기반 영속 대화용 그래프 — SqliteSaver checkpointer 포함.
+
+    stateless 그래프와 분리해 기존 /agent/chat 하위호환을 유지한다.
+    FastAPI sync 엔드포인트는 스레드풀에서 돌므로 check_same_thread=False
+    (SqliteSaver가 내부 lock으로 직렬화).
+    """
+    import sqlite3
+
+    from langgraph.checkpoint.sqlite import SqliteSaver
+
+    from src.agent.graph.agent import build_agent_graph
+    from src.config import settings
+
+    settings.checkpoint_db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(settings.checkpoint_db_path), check_same_thread=False)
+    return build_agent_graph(checkpointer=SqliteSaver(conn))

@@ -43,6 +43,7 @@ dependencies = [
     "ragas>=0.2.0",
     "datasets>=3.0.0",
     "matplotlib>=3.10.8",
+    "langgraph-checkpoint-sqlite>=2.0",
 ]
 
 [project.optional-dependencies]

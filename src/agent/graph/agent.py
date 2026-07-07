@@ -21,15 +21,18 @@ import logging
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, SystemMessage
+from langchain_core.messages.utils import count_tokens_approximately, trim_messages
 from langchain_core.tools import BaseTool
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
+from langgraph.types import Checkpointer
 
 from src.agent.state.state import MAX_ITERATIONS, AgentState
 from src.agent.tools.code_generate import code_generate
 from src.agent.tools.docs_search import docs_search
 from src.agent.tools.error_analyze import error_analyze
 from src.agent.tools.web_search import web_search
+from src.config import settings
 from src.rag.generation.llm import get_llm
 
 logger = logging.getLogger(__name__)
@@ -102,10 +105,22 @@ def _agent_node_factory(llm_with_tools: BaseChatModel):
         iteration = state.get("iteration_count", 0) + 1
         logger.info("Agent step %d", iteration)
 
-        # 시스템 프롬프트는 매번 prepend (stateless 하게 유지)
-        msgs: list[BaseMessage] = [SystemMessage(content=SYSTEM_PROMPT)] + list(
-            state["messages"]
+        # 히스토리 절삭 — checkpointer 사용 시 state가 무한히 자라므로
+        # 모델에 보내는 입력만 최근 대화 위주로 자른다 (저장된 state는 그대로).
+        # start_on="human" 으로 tool_call ↔ ToolMessage 짝이 깨지지 않게 유지.
+        history: list[BaseMessage] = trim_messages(
+            list(state["messages"]),
+            strategy="last",
+            token_counter=count_tokens_approximately,
+            max_tokens=settings.history_max_tokens,
+            start_on="human",
+            include_system=False,
         )
+        if not history:  # 단일 메시지가 상한보다 커도 최소한 마지막 턴은 보낸다
+            history = list(state["messages"])[-1:]
+
+        # 시스템 프롬프트는 매번 prepend (stateless 하게 유지)
+        msgs: list[BaseMessage] = [SystemMessage(content=SYSTEM_PROMPT), *history]
 
         # MAX_ITERATIONS 초과 시 tool 호출을 차단하고 최종 답변만 강제
         if iteration > MAX_ITERATIONS:
@@ -152,12 +167,15 @@ def build_agent_graph(
     *,
     llm: BaseChatModel | None = None,
     tools: list[BaseTool] | None = None,
+    checkpointer: Checkpointer | None = None,
 ):
     """ReAct 그래프 컴파일.
 
     Args:
-        llm: chat 모델. 기본 `get_llm()` (OpenAI gpt-4o-mini).
-        tools: 바인딩할 tool 목록. 기본 `[docs_search]`. 나머지 3개 tool 은 다음 단계에서 추가.
+        llm: chat 모델. 기본 `get_llm()` (settings.llm_provider).
+        tools: 바인딩할 tool 목록. 기본 4종 전체.
+        checkpointer: LangGraph checkpointer. 지정 시 `thread_id` 기반으로
+            대화 state가 서버에 영속화된다 (예: SqliteSaver).
 
     Returns:
         `CompiledGraph` — `.invoke({"messages": [...], "current_query": ..., "tool_results": [], "iteration_count": 0})` 로 실행.
@@ -175,6 +193,6 @@ def build_agent_graph(
     graph.add_conditional_edges("agent", _should_continue, {"tools": "tools", END: END})
     graph.add_edge("tools", "agent")
 
-    compiled = graph.compile()
+    compiled = graph.compile(checkpointer=checkpointer)
     logger.info("Agent graph compiled with %d tools: %s", len(tools), [t.name for t in tools])
     return compiled

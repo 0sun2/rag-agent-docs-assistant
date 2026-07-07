@@ -24,10 +24,17 @@ from langchain_core.messages import (
 )
 
 from src.agent.security.input_guard import check_user_input
-from src.api.deps import get_cached_agent_graph, get_cached_retriever
+from src.api.deps import (
+    get_cached_agent_graph,
+    get_cached_retriever,
+    get_cached_thread_agent_graph,
+)
 from src.api.schemas import (
     AgentChatRequest,
     AgentChatResponse,
+    AgentThreadChatRequest,
+    AgentThreadChatResponse,
+    AgentThreadHistoryResponse,
     AgentTraceStep,
     ChatMessage,
     RAGQARequest,
@@ -136,6 +143,41 @@ def _from_lc_messages(msgs: list[BaseMessage]) -> list[ChatMessage]:
     return out
 
 
+def _build_trace(msgs: list[BaseMessage]) -> list[AgentTraceStep]:
+    """이번 턴에 새로 생긴 메시지에서 tool 호출/결과 trace를 추출."""
+    trace: list[AgentTraceStep] = []
+    for m in msgs:
+        if isinstance(m, AIMessage) and m.tool_calls:
+            for tc in m.tool_calls:
+                trace.append(
+                    AgentTraceStep(
+                        kind="tool_call",
+                        name=tc["name"],
+                        payload=json.dumps(tc.get("args", {}), ensure_ascii=False),
+                    )
+                )
+        elif isinstance(m, ToolMessage):
+            trace.append(
+                AgentTraceStep(
+                    kind="tool_result",
+                    name=m.name or "tool",
+                    payload=str(m.content)[:800],
+                )
+            )
+    return trace
+
+
+def _final_answer(msgs: list[BaseMessage]) -> str:
+    return next(
+        (
+            str(m.content)
+            for m in reversed(msgs)
+            if isinstance(m, AIMessage) and not m.tool_calls and m.content
+        ),
+        "(no answer)",
+    )
+
+
 @app.post("/agent/chat", response_model=AgentChatResponse)
 def agent_chat(req: AgentChatRequest) -> AgentChatResponse:
     graph = get_cached_agent_graph()
@@ -168,34 +210,8 @@ def agent_chat(req: AgentChatRequest) -> AgentChatResponse:
 
     new_msgs = final["messages"][len(lc_msgs):]
 
-    trace: list[AgentTraceStep] = []
-    for m in new_msgs:
-        if isinstance(m, AIMessage) and m.tool_calls:
-            for tc in m.tool_calls:
-                trace.append(
-                    AgentTraceStep(
-                        kind="tool_call",
-                        name=tc["name"],
-                        payload=json.dumps(tc.get("args", {}), ensure_ascii=False),
-                    )
-                )
-        elif isinstance(m, ToolMessage):
-            trace.append(
-                AgentTraceStep(
-                    kind="tool_result",
-                    name=m.name or "tool",
-                    payload=str(m.content)[:800],
-                )
-            )
-
-    answer = next(
-        (
-            str(m.content)
-            for m in reversed(final["messages"])
-            if isinstance(m, AIMessage) and not m.tool_calls and m.content
-        ),
-        "(no answer)",
-    )
+    trace = _build_trace(new_msgs)
+    answer = _final_answer(final["messages"])
 
     usage = usage_from_messages(new_msgs)
     log_usage("agent_chat", usage)
@@ -206,4 +222,64 @@ def agent_chat(req: AgentChatRequest) -> AgentChatResponse:
         messages=_from_lc_messages(final["messages"]),
         iterations=final.get("iteration_count", 0),
         usage=_to_usage_info(usage),
+    )
+
+
+# ─────────── Agent (thread 기반 영속 대화) ───────────
+
+@app.post("/agent/thread/chat", response_model=AgentThreadChatResponse)
+def agent_thread_chat(req: AgentThreadChatRequest) -> AgentThreadChatResponse:
+    """서버측 메모리 버전 — 히스토리는 checkpointer(SqliteSaver)가 관리한다.
+
+    클라이언트는 `thread_id` + 새 메시지 1건만 보낸다. 같은 thread_id로 다시
+    호출하면 서버가 저장된 대화에 이어서 응답한다 (서버 재시작에도 유지).
+    """
+    guard = check_user_input(req.message)
+    if guard.blocked:
+        return AgentThreadChatResponse(
+            thread_id=req.thread_id, answer=guard.message, trace=[], iterations=0
+        )
+
+    graph = get_cached_thread_agent_graph()
+    config = {"configurable": {"thread_id": req.thread_id}}
+
+    # 이번 턴에 새로 생긴 메시지만 slice 하기 위해 이전 길이를 기록
+    prev_state = graph.get_state(config)
+    prev_len = len(prev_state.values.get("messages", [])) if prev_state.values else 0
+
+    initial_state = {
+        "messages": [HumanMessage(content=req.message)],
+        "tool_results": [],
+        "current_query": req.message,
+        "iteration_count": 0,  # 턴마다 tool 루프 예산 리셋
+    }
+
+    try:
+        final = graph.invoke(initial_state, config)
+    except Exception as e:  # noqa: BLE001
+        logger.exception("Agent thread invoke failed")
+        raise HTTPException(status_code=500, detail=f"agent: {e}") from e
+
+    new_msgs = final["messages"][prev_len + 1:]  # +1 = 이번 턴 user message
+
+    usage = usage_from_messages(new_msgs)
+    log_usage("agent_thread_chat", usage)
+
+    return AgentThreadChatResponse(
+        thread_id=req.thread_id,
+        answer=_final_answer(final["messages"]),
+        trace=_build_trace(new_msgs),
+        iterations=final.get("iteration_count", 0),
+        usage=_to_usage_info(usage),
+    )
+
+
+@app.get("/agent/thread/{thread_id}/history", response_model=AgentThreadHistoryResponse)
+def agent_thread_history(thread_id: str) -> AgentThreadHistoryResponse:
+    """저장된 thread의 대화 히스토리 조회 (UI 이어하기용)."""
+    graph = get_cached_thread_agent_graph()
+    state = graph.get_state({"configurable": {"thread_id": thread_id}})
+    messages = state.values.get("messages", []) if state.values else []
+    return AgentThreadHistoryResponse(
+        thread_id=thread_id, messages=_from_lc_messages(messages)
     )
