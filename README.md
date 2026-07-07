@@ -166,7 +166,7 @@ claude mcp add langchain-docs -- \
 ```
 
 등록하면 Claude Code 안에서 `docs_search`(hybrid+rerank 검색)와 `error_analyze`를
-바로 쓸 수 있다 — AgentCore Gateway에서 배운 "도구 표준화"의 셀프호스팅 구현.
+바로 쓸 수 있다 — AWS AgentCore Gateway의 "도구 표준화" 개념을 셀프호스팅으로 구현한 것.
 
 ---
 

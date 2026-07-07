@@ -1,6 +1,6 @@
 """MCP 서버 — docs_search / error_analyze 를 MCP 표준 도구로 노출 (개발계획서 4-2).
 
-AgentCore Gateway에서 배운 "도구 표준화" 개념의 셀프호스팅 실습:
+AWS AgentCore Gateway의 "도구 표준화" 개념을 셀프호스팅으로 구현:
 이 프로젝트의 검색엔진(hybrid + rerank)을 MCP stdio 서버로 노출하면
 Claude Code 등 모든 MCP 클라이언트에서 LangChain/LangGraph 문서 검색을
 실용 도구로 쓸 수 있다.

@@ -1,6 +1,6 @@
 """도구 결과 새니타이징 — indirect prompt injection 방어 계층.
 
-원칙 (부트캠프 Guardrails): "검증은 모델 밖 계층에서 강제한다."
+원칙 (AWS Bedrock Guardrails와 동일): "검증은 모델 밖 계층에서 강제한다."
 웹 검색 결과 등 외부 텍스트가 모델 컨텍스트에 그대로 들어가면, 페이지에 심어진
 지시("ignore previous instructions...")가 시스템 프롬프트를 우회할 수 있다.
 

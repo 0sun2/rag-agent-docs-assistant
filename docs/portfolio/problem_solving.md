@@ -623,7 +623,7 @@ FastAPI + Streamlit + ChromaDB 3 서비스를 띄우려 했는데, 기존에 작
 ---
 
 ## #16 SSE 스트리밍과 SqliteSaver 의 동기/비동기 충돌 — astream_events 대신 stream(stream_mode) 선택
-**Phase**: 6 (부트캠프 개선안 적용)
+**Phase**: 6 (AWS 프로덕션 업그레이드)
 **날짜**: 2026-07-07
 
 ### 상황
@@ -661,14 +661,15 @@ FastAPI + Streamlit + ChromaDB 3 서비스를 띄우려 했는데, 기존에 작
 ---
 
 ## #17 도구 결과 인젝션 방어 — "제거" 가 아니라 "경계 + 플래그" 로 시작한 이유
-**Phase**: 6 (부트캠프 개선안 적용)
+**Phase**: 6 (AWS 프로덕션 업그레이드)
 **날짜**: 2026-07-07
 
 ### 상황
 web_search(Tavily) 결과가 모델 컨텍스트에 그대로 들어가는 구조라, 웹 페이지에 심어진
 지시("ignore previous instructions...")가 시스템 프롬프트를 우회할 수 있었다 (indirect
-prompt injection). 시스템 프롬프트 지시만으로는 방어가 뚫린다는 것이 부트캠프 Guardrails
-수업의 출발점이었고, "검증은 모델 밖 계층에서 강제" 원칙을 적용해야 했다.
+prompt injection). 시스템 프롬프트 지시만으로는 방어가 뚫린다 — AWS Bedrock Guardrails가
+모델 밖 별도 정책 계층으로 존재하는 이유이기도 하다. 같은 원칙("검증은 모델 밖
+계층에서 강제")을 이 프로젝트 구조에 맞게 적용해야 했다.
 
 ### 원인 분석
 휴리스틱으로 의심 문장을 **삭제**하는 방식을 먼저 검토했으나 두 가지 문제:
