@@ -47,3 +47,6 @@ logs/
 # WSL / Windows
 *:Zone.Identifier
 data/hf_cache/
+
+# Agent 대화 메모리 (런타임 상태)
+data/checkpoints.sqlite*
