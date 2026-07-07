@@ -101,4 +101,5 @@ def docs_search(query: str) -> str:
     """
     docs = search_docs(query)
     logger.info("docs_search(%r) → %d passages", query, len(docs))
-    return _format_docs(docs)
+    # 인덱싱된 문서도 외부 유래 텍스트 — 동일한 데이터 경계로 래핑
+    return sanitize_tool_output("docs_search", _format_docs(docs))

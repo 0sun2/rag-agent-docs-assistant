@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     # 모델 ID는 온디맨드 미지원 모델이 있어 추론 프로파일 ID 사용
     bedrock_model_id: str = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
     aws_region: str = "ap-southeast-1"
+    # 선택: Bedrock Guardrail 입력 필터 (비우면 비활성)
+    bedrock_guardrail_id: str = ""
+    bedrock_guardrail_version: str = "DRAFT"
 
     # Embedding (오픈소스 기본)
     # provider: "huggingface" | "openai"

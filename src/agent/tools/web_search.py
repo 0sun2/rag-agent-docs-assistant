@@ -22,6 +22,7 @@ from functools import lru_cache
 
 from langchain_core.tools import tool
 
+from src.agent.security.sanitize import sanitize_tool_output
 from src.config import settings
 
 logger = logging.getLogger(__name__)
@@ -89,4 +90,5 @@ def web_search(query: str) -> str:
     logger.info("web_search(%r)", query)
     client = _get_tavily_client()
     raw = client.invoke({"query": query})
-    return _format_results(raw)
+    # 외부 웹 텍스트는 인젝션 위험이 가장 큰 입력 — 데이터 경계로 래핑해 반환
+    return sanitize_tool_output("web_search", _format_results(raw))

@@ -23,6 +23,7 @@ from langchain_core.messages import (
     ToolMessage,
 )
 
+from src.agent.security.input_guard import check_user_input
 from src.api.deps import get_cached_agent_graph, get_cached_retriever
 from src.api.schemas import (
     AgentChatRequest,
@@ -62,6 +63,10 @@ def _to_usage_info(report: UsageReport | None) -> UsageInfo | None:
 
 @app.post("/rag/qa", response_model=RAGQAResponse)
 def rag_qa(req: RAGQARequest) -> RAGQAResponse:
+    guard = check_user_input(req.question)
+    if guard.blocked:
+        return RAGQAResponse(answer=guard.message, sources=[])
+
     try:
         retriever = get_cached_retriever(
             req.strategy, req.embedding_model, req.method, req.top_k
@@ -141,6 +146,12 @@ def agent_chat(req: AgentChatRequest) -> AgentChatResponse:
         (m.content for m in reversed(req.messages) if m.role == "user"),
         "",
     )
+
+    guard = check_user_input(last_user)
+    if guard.blocked:
+        return AgentChatResponse(
+            answer=guard.message, trace=[], messages=req.messages, iterations=0
+        )
 
     initial_state = {
         "messages": lc_msgs,
