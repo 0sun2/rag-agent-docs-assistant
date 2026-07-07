@@ -1,0 +1,80 @@
+[
+  {
+    "id": "docs_only-01",
+    "quadrant": "docs_only",
+    "question": "What does the @tool decorator do in LangChain and what are its parameters?",
+    "called_tools": [
+      "docs_search"
+    ],
+    "tool_selection_ok": true,
+    "multistep_ok": null,
+    "citation_ok": true,
+    "iterations": 2,
+    "input_tokens": 4210,
+    "output_tokens": 345,
+    "cost_usd": 0.000839,
+    "latency_s": 18.51,
+    "answer_preview": "The `@tool` decorator in LangChain is used to create a tool from a function that can be called by a LangChain agent. This decorator simplifies the integration of functions into the LangChain framework",
+    "error": null
+  },
+  {
+    "id": "code_only-01",
+    "quadrant": "code_only",
+    "question": "Write a Python function that reverses a string without using slicing.",
+    "called_tools": [
+      "code_generate",
+      "code_generate",
+      "code_generate",
+      "code_generate",
+      "code_generate"
+    ],
+    "tool_selection_ok": true,
+    "multistep_ok": null,
+    "citation_ok": null,
+    "iterations": 5,
+    "input_tokens": 10044,
+    "output_tokens": 208,
+    "cost_usd": 0.001631,
+    "latency_s": 11.13,
+    "answer_preview": "",
+    "error": null
+  },
+  {
+    "id": "multi_step-01",
+    "quadrant": "multi_step",
+    "question": "Write a custom LangChain tool with the @tool decorator that returns the current time.",
+    "called_tools": [
+      "docs_search",
+      "code_generate",
+      "code_generate",
+      "code_generate",
+      "code_generate"
+    ],
+    "tool_selection_ok": true,
+    "multistep_ok": true,
+    "citation_ok": null,
+    "iterations": 5,
+    "input_tokens": 13815,
+    "output_tokens": 257,
+    "cost_usd": 0.002226,
+    "latency_s": 11.5,
+    "answer_preview": "",
+    "error": null
+  },
+  {
+    "id": "no_tool-01",
+    "quadrant": "no_tool",
+    "question": "Hi! What can you help me with?",
+    "called_tools": [],
+    "tool_selection_ok": true,
+    "multistep_ok": null,
+    "citation_ok": null,
+    "iterations": 1,
+    "input_tokens": 1611,
+    "output_tokens": 133,
+    "cost_usd": 0.000321,
+    "latency_s": 2.09,
+    "answer_preview": "Hello! I can assist you with a variety of tasks related to LangChain and LangGraph, including:\n\n1. **Documentation**: Answering questions about APIs, concepts, and usage patterns by searching the offi",
+    "error": null
+  }
+]

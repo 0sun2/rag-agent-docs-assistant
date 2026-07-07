@@ -1,0 +1,33 @@
+# AWS 배포용 오버라이드 — GPU 없는 EC2(t3.large 등)에서 관리형 스택으로 실행.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d
+#
+# 스왑 내용 (구축계획서 Phase A):
+#   LLM       → Bedrock Claude (LLM_PROVIDER=bedrock)
+#   임베딩    → Titan Embeddings V2 (관리형 API, GPU 불필요)
+#   리랭커    → 생략 (PROD_USE_RERANKER=false — hybrid 만으로 hit@10 0.88~0.90)
+#
+# 전제:
+#   1. EC2에 IAM 역할 부여 (bedrock:InvokeModel / Converse) — 키 파일 금지
+#   2. Titan V2로 재색인 완료:
+#      uv run python -m src.rag.embedding.run --provider bedrock --model amazon.titan-embed-text-v2:0
+#      (임베딩 모델 변경 = 전체 재색인 필수, 색인·검색 임베딩 동일 원칙)
+
+services:
+  api:
+    environment:
+      - LLM_PROVIDER=bedrock
+      - AWS_REGION=ap-southeast-1
+      - EMBEDDING_DEVICE=cpu
+      - PROD_EMBEDDING_PROVIDER=bedrock
+      - PROD_EMBEDDING_MODEL=amazon.titan-embed-text-v2:0
+      - PROD_USE_RERANKER=false
+    # GPU 예약 제거 (베이스 compose의 deploy.resources 무효화)
+    deploy: {}
+    restart: unless-stopped
+
+  chromadb:
+    restart: unless-stopped
+
+  ui:
+    restart: unless-stopped

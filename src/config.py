@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     bedrock_guardrail_version: str = "DRAFT"
 
     # Embedding (오픈소스 기본)
-    # provider: "huggingface" | "openai"
+    # provider: "huggingface" | "openai" | "bedrock" (Titan — AWS 배포 구성)
     embedding_provider: str = "huggingface"
     # 메인: BAAI/bge-m3, 비교군: BAAI/bge-large-en-v1.5
     embedding_model: str = "BAAI/bge-m3"
@@ -50,6 +50,18 @@ class Settings(BaseSettings):
     top_k: int = 5
     chunk_size: int = 1000
     chunk_overlap: int = 150
+
+    # Agent docs_search 프로덕션 retrieval 구성
+    # 기본: Phase 3 최적 구성 (recursive × bge-large-en-v1.5 × hybrid_rerank).
+    # AWS 배포 시 Titan으로 스왑: PROD_EMBEDDING_PROVIDER=bedrock,
+    # PROD_EMBEDDING_MODEL=amazon.titan-embed-text-v2:0, PROD_USE_RERANKER=false
+    # (임베딩 스왑 시 해당 모델로 재색인 필수 — 색인·검색 임베딩 동일 원칙)
+    prod_strategy: str = "recursive"
+    prod_embedding_provider: str = "huggingface"
+    prod_embedding_model: str = "BAAI/bge-large-en-v1.5"
+    prod_use_reranker: bool = True
+    prod_top_k: int = 5
+    prod_fetch_k: int = 20
 
     # Crawler
     crawl_output_dir: Path = Path("./data/raw/langchain")

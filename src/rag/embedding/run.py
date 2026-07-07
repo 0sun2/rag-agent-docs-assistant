@@ -158,7 +158,7 @@ def main() -> None:
     parser.add_argument(
         "--provider",
         default=None,
-        help="huggingface | openai (기본: settings.embedding_provider)",
+        help="huggingface | openai | bedrock (기본: settings.embedding_provider)",
     )
     parser.add_argument(
         "--model",

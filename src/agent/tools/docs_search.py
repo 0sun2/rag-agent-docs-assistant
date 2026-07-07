@@ -27,17 +27,15 @@ _URL_RE = re.compile(r"https?://\S+")
 from langchain_core.retrievers import BaseRetriever
 from langchain_core.tools import tool
 
+from src.agent.security.sanitize import sanitize_tool_output
 from src.rag.retrieval.hybrid import get_hybrid_retriever
 from src.rag.retrieval.rerank import wrap_with_reranker
 
 logger = logging.getLogger(__name__)
 
-# Phase 3 에서 확정된 프로덕션 구성. 에이전트 레벨에서는 상수로 고정해 실험용 설정과 분리.
-PROD_STRATEGY = "recursive"
-PROD_PROVIDER = "huggingface"
-PROD_MODEL = "BAAI/bge-large-en-v1.5"
-PROD_TOP_K = 5
-PROD_FETCH_K = 20  # reranker 가 재정렬할 1차 후보 수 (fetch_k > top_n 이어야 의미 있음)
+# Phase 3 에서 확정된 프로덕션 구성이 settings 기본값. AWS 배포 시 .env 로 스왑
+# (PROD_EMBEDDING_PROVIDER=bedrock + PROD_USE_RERANKER=false — GPU 제거).
+from src.config import settings  # noqa: E402
 
 
 @lru_cache(maxsize=1)
@@ -48,18 +46,21 @@ def _get_prod_retriever() -> BaseRetriever:
     프로세스 생존 기간 동안 유지된다.
     """
     logger.info(
-        "Building production docs_search retriever: %s × %s × hybrid_rerank",
-        PROD_STRATEGY,
-        PROD_MODEL,
+        "Building production docs_search retriever: %s x %s x %s",
+        settings.prod_strategy,
+        settings.prod_embedding_model,
+        "hybrid_rerank" if settings.prod_use_reranker else "hybrid",
     )
     hybrid = get_hybrid_retriever(
-        strategy=PROD_STRATEGY,
-        provider=PROD_PROVIDER,
-        model=PROD_MODEL,
-        k=PROD_FETCH_K,
+        strategy=settings.prod_strategy,
+        provider=settings.prod_embedding_provider,
+        model=settings.prod_embedding_model,
+        # reranker 가 있으면 넓게 fetch 후 재정렬, 없으면 top_k 만
+        k=settings.prod_fetch_k if settings.prod_use_reranker else settings.prod_top_k,
     )
-    reranked = wrap_with_reranker(hybrid, top_n=PROD_TOP_K)
-    return reranked
+    if not settings.prod_use_reranker:
+        return hybrid
+    return wrap_with_reranker(hybrid, top_n=settings.prod_top_k)
 
 
 def search_docs(query: str) -> list[Document]:

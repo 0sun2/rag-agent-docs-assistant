@@ -84,6 +84,18 @@ def _build_openai(model_name: str) -> Embeddings:
     )
 
 
+def _build_bedrock(model_name: str) -> Embeddings:
+    """Bedrock 관리형 임베딩 (Titan V2 등) — GPU 불필요, 호출당 과금.
+
+    AWS 배포 구성용 (구축계획서 Phase A-3). 임베딩 모델을 바꾸면 색인·검색
+    임베딩 동일 원칙에 따라 전체 재색인 필수:
+        uv run python -m src.rag.embedding.run --provider bedrock --model amazon.titan-embed-text-v2:0
+    """
+    from langchain_aws import BedrockEmbeddings
+
+    return BedrockEmbeddings(model_id=model_name, region_name=settings.aws_region)
+
+
 def get_embeddings(
     provider: str | None = None,
     model: str | None = None,
@@ -100,4 +112,6 @@ def get_embeddings(
         return _build_huggingface(model)
     if provider == "openai":
         return _build_openai(model)
+    if provider == "bedrock":
+        return _build_bedrock(model)
     raise ValueError(f"Unknown embedding provider: {provider}")
