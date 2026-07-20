@@ -1,8 +1,22 @@
 # LLM Docs Assistant
 
 LangChain / LangGraph 공식 문서를 대상으로 한 **RAG QA 시스템 + ReAct 코딩 어시스턴트 에이전트**.
-AI 개발자 포트폴리오 프로젝트 — 검색 품질 최적화(청킹 · 임베딩 · hybrid · rerank)부터
+LangChain 문서 기반 RAG·에이전트 시스템 — 검색 품질 최적화(청킹 · 임베딩 · hybrid · rerank)부터
 LangGraph 멀티툴 에이전트 구현, RAGAS 정량 평가까지 end-to-end 로 다룬다.
+
+### 결과 한눈에
+
+8개 임베딩·청킹 조합을 정량 비교해 최적 구성(`recursive × bge-large-en × hybrid_rerank`)을 선정하고, 안전·비용·운영 계층까지 갖춘 에이전트 서비스로 완성했다.
+
+| 지표 | 성과 | 맥락 |
+|---|---|---|
+| Retrieval **hit@10** | 0.857 → **0.940** | hybrid(BM25+dense) + cross-encoder rerank 로 단계적 개선 |
+| Retrieval **MRR@10** | 0.693 → **0.821** | reranker 가 정답을 상위로 끌어올림 |
+| RAGAS **answer_relevancy** | **0.965** | 84 QA, `gpt-4o-mini` 판정 (context_recall 0.903) |
+| 에이전트 **툴 선택 정확도** | **95.8%** | 48문항 실행 trace 자동 채점 |
+| 요청당 비용 추적 | `docs_search` 1건 **~$0.0009** | 토큰·비용을 API 응답 + 로그로 가시화 |
+
+> 수치 근거: [Retrieval](#실험-결과-요약) · [RAGAS](#ragas-종합-평가-84-qa-판정자-gpt-4o-mini) · [에이전트 평가](#에이전트-수준-평가-테스트-4분면-48문항-기계-판정)
 
 > **왜 만들었나.** LLM 앱을 개발할 때마다 LangChain · LangGraph 의 방대한 공식 문서를
 > 수동 검색하고, 버전별로 달라지는 API 를 일일이 대조하는 비효율이 컸다. 이를
